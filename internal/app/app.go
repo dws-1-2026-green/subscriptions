@@ -10,6 +10,8 @@ import (
 	"github.com/dws-1-2026-green/subscriptions/internal/usecase/routing"
 	"github.com/dws-1-2026-green/subscriptions/internal/worker"
 	"github.com/jackc/pgx/v5/pgxpool"
+
+	kafkago "github.com/segmentio/kafka-go"
 )
 
 type closeFunc func()
@@ -35,7 +37,7 @@ func (a *App) Close() {
 func New(ctx context.Context, cfg config.Config) (*App, error) {
 	a := &App{
 		cfg:        cfg,
-		closeFuncs: make([]closeFunc, 0),
+		closeFuncs: make([]closeFunc, 0, 4),
 	}
 
 	var repo routing.SubscriptionsRepo
@@ -52,7 +54,22 @@ func New(ctx context.Context, cfg config.Config) (*App, error) {
 	}
 
 	handler := routing.NewHandler(repo)
-	a.worker = kafka.NewWorker(nil, nil, handler)
+
+	reader := kafkago.NewReader(kafkago.ReaderConfig{
+		Brokers: cfg.KafkaBrokers,
+		GroupID: cfg.KafkaGroupID,
+		Topic:   cfg.RoutingRequestsTopic,
+	})
+	a.closeFuncs = append(a.closeFuncs, closeFunc(func() { _ = reader.Close() }))
+
+	writer := kafkago.NewWriter(kafkago.WriterConfig{
+		Brokers:  cfg.KafkaBrokers,
+		Topic:    cfg.DeliveriesToSendTopic,
+		Balancer: &kafkago.Hash{},
+	})
+	a.closeFuncs = append(a.closeFuncs, closeFunc(func() { _ = writer.Close() }))
+
+	a.worker = kafka.NewWorker(reader, writer, handler)
 
 	return a, nil
 }
