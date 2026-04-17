@@ -14,7 +14,7 @@ import (
 
 func main() {
 	if err := godotenv.Load(); err != nil {
-		log.Fatalf("env: %v", err)
+		log.Printf("env: %v", err)
 	}
 
 	cfg, err := config.Load()
