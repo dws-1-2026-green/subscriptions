@@ -49,7 +49,6 @@ func (r PosgresSubscriptionsRepo) ListBySourceAndType(ctx context.Context, sourc
 			return nil, fmt.Errorf("scan subscription: %w", err)
 		}
 
-		// headers is jsonb object: {"Header":"Value", ...}
 		if len(headersRaw) == 0 {
 			s.Headers = map[string]string{}
 		} else {
