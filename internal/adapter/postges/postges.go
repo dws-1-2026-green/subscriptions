@@ -42,7 +42,7 @@ func (r PosgresSubscriptionsRepo) ListBySourceAndType(ctx context.Context, sourc
 
 		if err := rows.Scan(
 			&s.Id,
-			&s.DestinnationUrl,
+			&s.DestinationUrl,
 			&s.Method,
 			&headersRaw,
 		); err != nil {
