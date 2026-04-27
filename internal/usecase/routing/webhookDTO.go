@@ -3,20 +3,20 @@ package routing
 import "encoding/json"
 
 type WebhookDTO struct {
-	DeliveryId string
+	DeliveryId string `json:"delivery_id"`
 
 	Event struct {
-		Id   string
-		Data json.RawMessage
-	}
+		Id   string          `json:"id"`
+		Data json.RawMessage `json:"data"`
+	} `json:"event"`
 
 	Subscription struct {
-		Id             string
-		DestinationUrl string
-		Method         string
-		Headers        map[string]string
-	}
+		Id             string            `json:"id"`
+		DestinationUrl string            `json:"destination_url"`
+		Method         string            `json:"method"`
+		Headers        map[string]string `json:"headers"`
+	} `json:"subscription"`
 
-	MappedAt string
-	TraceId  string
+	MappedAt string `json:"mapped_at"`
+	TraceId  string `json:"trace_id"`
 }
