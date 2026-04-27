@@ -4,12 +4,15 @@ import (
 	"context"
 	"errors"
 
+	"github.com/dws-1-2026-green/subscriptions/internal/adapter/cassandra"
 	"github.com/dws-1-2026-green/subscriptions/internal/adapter/kafka"
 	"github.com/dws-1-2026-green/subscriptions/internal/adapter/postges"
 	"github.com/dws-1-2026-green/subscriptions/internal/config"
 	"github.com/dws-1-2026-green/subscriptions/internal/usecase/routing"
 	"github.com/dws-1-2026-green/subscriptions/internal/worker"
+	"github.com/gocql/gocql"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/scylladb/gocqlx/v2"
 
 	kafkago "github.com/segmentio/kafka-go"
 )
@@ -49,6 +52,16 @@ func New(ctx context.Context, cfg config.Config) (*App, error) {
 		}
 		a.closeFuncs = append(a.closeFuncs, closeFunc(pool.Close))
 		repo = postges.NewPosgresSubscriptionsRepo(pool)
+	case "cassandra":
+		cluster := gocql.NewCluster(cfg.CassandraHosts...)
+		cluster.Keyspace = cfg.CassandraKeyspace
+		cluster.Consistency = gocql.ParseConsistency(cfg.CassandraConsistency)
+		session, err := gocqlx.WrapSession(cluster.CreateSession())
+		if err != nil {
+			return nil, err
+		}
+		a.closeFuncs = append(a.closeFuncs, closeFunc(session.Close))
+		repo = cassandra.NewCassandraSubscriptionsRepo(&session)
 	default:
 		return nil, errors.New("unknown STORE_BACKEND: " + cfg.StoreBackend)
 	}
