@@ -23,9 +23,9 @@ func (kw KafkaWorker) Run(ctx context.Context) error {
 			return err
 		}
 
-		var event routing.EventDTO
+		var event routing.RoutingRequestDTO
 		if err := json.Unmarshal(msg.Value, &event); err != nil {
-			return fmt.Errorf("unmarshal EventDTO: %w", err)
+			return fmt.Errorf("unmarshal RoutingRequestDTO: %w", err)
 		}
 
 		webhooks, err := kw.handler.GetDestinationUrl(ctx, event)

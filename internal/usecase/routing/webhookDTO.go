@@ -1,22 +1,10 @@
 package routing
 
-import "encoding/json"
-
+// WebhookDTO represents the delivery payload published to the deliveries.to_send Kafka topic.
 type WebhookDTO struct {
-	DeliveryId string
-
-	Event struct {
-		Id   string
-		Data json.RawMessage
-	}
-
-	Subscription struct {
-		Id             string
-		DestinationUrl string
-		Method         string
-		Headers        map[string]string
-	}
-
-	MappedAt string
-	TraceId  string
+	DeliveryId   string                 `json:"delivery_id"`
+	Event        WebhookEventDTO        `json:"event"`
+	Subscription WebhookSubscriptionDTO `json:"subscription"`
+	MappedAt     string                 `json:"mapped_at"`
+	TraceId      string                 `json:"trace_id"`
 }

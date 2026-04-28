@@ -58,10 +58,10 @@ func (r CassandraSubscriptionsRepo) ListBySourceAndType(ctx context.Context, sou
 		}
 
 		s := subscription.Subscription{
-			Id:              row.SubscriptionID,
-			DestinnationUrl: row.DestinationURL,
-			Method:          row.HTTPMethod,
-			Headers:         row.Headers,
+			Id:             row.SubscriptionID,
+			DestinationUrl: row.DestinationURL,
+			Method:         row.HTTPMethod,
+			Headers:        row.Headers,
 		}
 
 		if s.Headers == nil {

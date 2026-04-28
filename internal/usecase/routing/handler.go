@@ -2,18 +2,19 @@ package routing
 
 import (
 	"context"
-	"encoding/json"
 	"time"
 
 	"github.com/dws-1-2026-green/subscriptions/internal/metrics"
 	"github.com/google/uuid"
 )
 
+// Handler handles routing of webhook requests to subscriptions.
 type Handler struct {
 	repo SubscriptionsRepo
 }
 
-func (h Handler) GetDestinationUrl(ctx context.Context, event EventDTO) ([]WebhookDTO, error) {
+// GetDestinationUrl retrieves webhook destinations for a given event.
+func (h Handler) GetDestinationUrl(ctx context.Context, event RoutingRequestDTO) ([]WebhookDTO, error) {
 	subscriptions, err := h.repo.ListBySourceAndType(ctx, event.Event.Source, event.Event.Type)
 
 	if err != nil {
@@ -32,27 +33,16 @@ func (h Handler) GetDestinationUrl(ctx context.Context, event EventDTO) ([]Webho
 	for _, sub := range subscriptions {
 		webhook := WebhookDTO{
 			DeliveryId: uuid.NewString(),
-
-			Event: struct {
-				Id   string
-				Data json.RawMessage
-			}{
+			Event: WebhookEventDTO{
 				Id:   event.Event.Id,
 				Data: event.Event.Data,
 			},
-
-			Subscription: struct {
-				Id             string
-				DestinationUrl string
-				Method         string
-				Headers        map[string]string
-			}{
+			Subscription: WebhookSubscriptionDTO{
 				Id:             sub.Id,
-				DestinationUrl: sub.DestinnationUrl,
+				DestinationUrl: sub.DestinationUrl,
 				Method:         sub.Method,
 				Headers:        sub.Headers,
 			},
-
 			MappedAt: time.Now().Format(time.RFC3339),
 			TraceId:  event.TraceId,
 		}
@@ -65,6 +55,7 @@ func (h Handler) GetDestinationUrl(ctx context.Context, event EventDTO) ([]Webho
 	return webhooks, nil
 }
 
+// NewHandler creates a new Handler with the given subscriptions repository.
 func NewHandler(repo SubscriptionsRepo) Handler {
 	return Handler{
 		repo: repo,
