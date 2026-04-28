@@ -2,15 +2,17 @@ package routing
 
 import "encoding/json"
 
-type EventDTO struct {
-	Event struct {
-		Id     string
-		Source string
-		Type   string
+type RoutingRequestEventDTO struct {
+	Id     string `json:"id"`
+	Source string `json:"source"`
+	Type   string `json:"type"`
 
-		Data json.RawMessage
-	}
+	Data json.RawMessage `json:"data"`
+}
 
-	IngestedAt string
-	TraceId    string
+type RoutingRequestDTO struct {
+	Event RoutingRequestEventDTO `json:"event"`
+
+	IngestedAt string `json:"ingested_at"`
+	TraceId    string `json:"trace_id"`
 }

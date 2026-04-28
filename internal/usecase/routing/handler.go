@@ -2,7 +2,6 @@ package routing
 
 import (
 	"context"
-	"encoding/json"
 	"time"
 
 	"github.com/google/uuid"
@@ -12,7 +11,7 @@ type Handler struct {
 	repo SubscriptionsRepo
 }
 
-func (h Handler) GetDestinationUrl(ctx context.Context, event EventDTO) ([]WebhookDTO, error) {
+func (h Handler) GetDestinationUrl(ctx context.Context, event RoutingRequestDTO) ([]WebhookDTO, error) {
 	subscriptions, err := h.repo.ListBySourceAndType(ctx, event.Event.Source, event.Event.Type)
 
 	if err != nil {
@@ -24,19 +23,11 @@ func (h Handler) GetDestinationUrl(ctx context.Context, event EventDTO) ([]Webho
 	for _, sub := range subscriptions {
 		webhook := WebhookDTO{
 			DeliveryId: uuid.NewString(),
-			Event: struct {
-				Id   string          `json:"id"`
-				Data json.RawMessage `json:"data"`
-			}{
+			Event: WebhookEventDTO{
 				Id:   event.Event.Id,
 				Data: event.Event.Data,
 			},
-			Subscription: struct {
-				Id             string            `json:"id"`
-				DestinationUrl string            `json:"destination_url"`
-				Method         string            `json:"method"`
-				Headers        map[string]string `json:"headers"`
-			}{
+			Subscription: WebhookSubscriptionDTO{
 				Id:             sub.Id,
 				DestinationUrl: sub.DestinationUrl,
 				Method:         sub.Method,
