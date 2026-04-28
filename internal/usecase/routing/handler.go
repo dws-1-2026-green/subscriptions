@@ -7,10 +7,12 @@ import (
 	"github.com/google/uuid"
 )
 
+// Handler handles routing of webhook requests to subscriptions.
 type Handler struct {
 	repo SubscriptionsRepo
 }
 
+// GetDestinationUrl retrieves webhook destinations for a given event.
 func (h Handler) GetDestinationUrl(ctx context.Context, event RoutingRequestDTO) ([]WebhookDTO, error) {
 	subscriptions, err := h.repo.ListBySourceAndType(ctx, event.Event.Source, event.Event.Type)
 
@@ -43,6 +45,7 @@ func (h Handler) GetDestinationUrl(ctx context.Context, event RoutingRequestDTO)
 	return webhooks, nil
 }
 
+// NewHandler creates a new Handler with the given subscriptions repository.
 func NewHandler(repo SubscriptionsRepo) Handler {
 	return Handler{
 		repo: repo,
