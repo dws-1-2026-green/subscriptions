@@ -3,8 +3,10 @@ package cassandra
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"github.com/dws-1-2026-green/subscriptions/internal/domain/subscription"
+	"github.com/dws-1-2026-green/subscriptions/internal/metrics"
 	"github.com/scylladb/gocqlx/v2"
 	"github.com/scylladb/gocqlx/v2/qb"
 )
@@ -31,6 +33,11 @@ type subscriptionRow struct {
 }
 
 func (r CassandraSubscriptionsRepo) ListBySourceAndType(ctx context.Context, source string, eventType string) ([]subscription.Subscription, error) {
+	start := time.Now()
+	defer func() {
+		metrics.DBQueryDuration.WithLabelValues("cassandra").Observe(time.Since(start).Seconds())
+	}()
+
 	query := qb.Select("subscriptions").
 		Columns("subscription_id", "destination_url", "http_method", "headers", "enabled").
 		Where(qb.Eq("source"), qb.Eq("event_type")).

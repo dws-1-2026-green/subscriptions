@@ -4,8 +4,10 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"time"
 
 	"github.com/dws-1-2026-green/subscriptions/internal/domain/subscription"
+	"github.com/dws-1-2026-green/subscriptions/internal/metrics"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -14,6 +16,11 @@ type PosgresSubscriptionsRepo struct {
 }
 
 func (r PosgresSubscriptionsRepo) ListBySourceAndType(ctx context.Context, source string, eventType string) ([]subscription.Subscription, error) {
+	start := time.Now()
+	defer func() {
+		metrics.DBQueryDuration.WithLabelValues("postgres").Observe(time.Since(start).Seconds())
+	}()
+
 	const q = `
 		select
   			id,

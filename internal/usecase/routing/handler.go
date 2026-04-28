@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"time"
 
+	"github.com/dws-1-2026-green/subscriptions/internal/metrics"
 	"github.com/google/uuid"
 )
 
@@ -16,7 +17,14 @@ func (h Handler) GetDestinationUrl(ctx context.Context, event EventDTO) ([]Webho
 	subscriptions, err := h.repo.ListBySourceAndType(ctx, event.Event.Source, event.Event.Type)
 
 	if err != nil {
+		metrics.RoutingErrorsTotal.Inc()
 		return []WebhookDTO{}, err
+	}
+
+	metrics.EventsProcessed.WithLabelValues(event.Event.Source, event.Event.Type).Inc()
+
+	if len(subscriptions) == 0 {
+		metrics.NoMatchesTotal.WithLabelValues(event.Event.Source, event.Event.Type).Inc()
 	}
 
 	webhooks := make([]WebhookDTO, 0, len(subscriptions))
@@ -51,6 +59,8 @@ func (h Handler) GetDestinationUrl(ctx context.Context, event EventDTO) ([]Webho
 
 		webhooks = append(webhooks, webhook)
 	}
+
+	metrics.DeliveriesDispatched.WithLabelValues(event.Event.Source, event.Event.Type).Add(float64(len(webhooks)))
 
 	return webhooks, nil
 }
