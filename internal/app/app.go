@@ -3,6 +3,8 @@ package app
 import (
 	"context"
 	"errors"
+	"log"
+	"net/http"
 
 	"github.com/dws-1-2026-green/subscriptions/internal/adapter/cassandra"
 	"github.com/dws-1-2026-green/subscriptions/internal/adapter/kafka"
@@ -12,6 +14,7 @@ import (
 	"github.com/dws-1-2026-green/subscriptions/internal/worker"
 	"github.com/gocql/gocql"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/scylladb/gocqlx/v2"
 
 	kafkago "github.com/segmentio/kafka-go"
@@ -83,6 +86,14 @@ func New(ctx context.Context, cfg config.Config) (*App, error) {
 	a.closeFuncs = append(a.closeFuncs, closeFunc(func() { _ = writer.Close() }))
 
 	a.worker = kafka.NewWorker(reader, writer, handler)
+
+	go func() {
+		mux := http.NewServeMux()
+		mux.Handle("/metrics", promhttp.Handler())
+		if err := http.ListenAndServe(cfg.MetricsAddr, mux); err != nil {
+			log.Printf("metrics server: %v", err)
+		}
+	}()
 
 	return a, nil
 }
