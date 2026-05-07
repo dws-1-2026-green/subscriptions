@@ -20,6 +20,9 @@ type Config struct {
 	DeliveriesToSendTopic string   `env:"KAFKA_DELIVERIES_TOPIC" envDefault:"deliveries.to_send"`
 
 	MetricsAddr string `env:"METRICS_ADDR" envDefault:":9091"`
+
+	// HTTP API
+	HTTPAddr string `env:"HTTP_ADDR" envDefault:":8080"`
 }
 
 func Load() (Config, error) {

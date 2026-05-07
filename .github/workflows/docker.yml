@@ -13,6 +13,9 @@ permissions:
 jobs:
   docker:
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        target: [worker, api]
 
     steps:
       - name: Checkout
@@ -38,9 +41,8 @@ jobs:
         id: meta
         uses: docker/metadata-action@v5
         with:
-          # Важно: используем репозиторий организации, где лежит код:
-          # ghcr.io/<org>/<repo>
-          images: ghcr.io/${{ github.repository }}
+          # Образы: ghcr.io/<org>/<repo>-worker и ghcr.io/<org>/<repo>-api
+          images: ghcr.io/${{ github.repository }}-${{ matrix.target }}
           tags: |
             type=ref,event=branch
             type=ref,event=tag
@@ -54,6 +56,7 @@ jobs:
           file: ./Dockerfile
           platforms: linux/amd64
           push: false
+          build-args: TARGET=${{ matrix.target }}
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
 
@@ -65,5 +68,6 @@ jobs:
           file: ./Dockerfile
           platforms: linux/amd64,linux/arm64
           push: true
+          build-args: TARGET=${{ matrix.target }}
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
