@@ -7,8 +7,8 @@ import (
 	"os/signal"
 	"syscall"
 
-	"github.com/dws-1-2026-green/subscriptions/internal/app"
 	"github.com/dws-1-2026-green/subscriptions/internal/config"
+	routingApp "github.com/dws-1-2026-green/subscriptions/internal/routingApp"
 	"github.com/joho/godotenv"
 )
 
@@ -25,7 +25,7 @@ func main() {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
-	app, err := app.New(ctx, cfg)
+	app, err := routingApp.New(ctx, cfg)
 	if err != nil {
 		log.Fatalf("app: %v", err)
 	}
