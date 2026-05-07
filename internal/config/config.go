@@ -14,7 +14,7 @@ type Config struct {
 	CassandraConsistency string   `env:"CASSANDRA_CONSISTENCY" envDefault:"QUORUM"`
 
 	// kafka
-	KafkaBrokers          []string `env:"KAFKA_BROKERS,required" envSeparator:","`
+	KafkaBrokers          []string `env:"KAFKA_BROKERS" envSeparator:","`
 	KafkaGroupID          string   `env:"KAFKA_GROUP_ID" envDefault:"subscriptions-worker"`
 	RoutingRequestsTopic  string   `env:"KAFKA_ROUTING_REQUESTS_TOPIC" envDefault:"routing.requests"`
 	DeliveriesToSendTopic string   `env:"KAFKA_DELIVERIES_TOPIC" envDefault:"deliveries.to_send"`
