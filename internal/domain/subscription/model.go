@@ -4,14 +4,14 @@ import "time"
 
 // Subscription represents a webhook subscription configuration.
 type Subscription struct {
-	Id             string
-	Source         string
-	EventType      string
-	DestinationUrl string
-	Method         string
-	Headers        map[string]string
-	Enabled        bool
-	CreatedAt      time.Time
+	Id             string            `json:"subscription_id"`
+	Source         string            `json:"source"`
+	EventType      string            `json:"event_type"`
+	DestinationUrl string            `json:"destination_url"`
+	Method         string            `json:"http_method"`
+	Headers        map[string]string `json:"headers,omitempty"`
+	Enabled        bool              `json:"enabled"`
+	CreatedAt      time.Time         `json:"created_at"`
 }
 
 // CreateRequest represents the request body for creating a subscription
