@@ -31,7 +31,12 @@ func (kw KafkaWorker) Run(ctx context.Context) error {
 
 		var event routing.RoutingRequestDTO
 		if err := json.Unmarshal(msg.Value, &event); err != nil {
-			return fmt.Errorf("unmarshal RoutingRequestDTO: %w", err)
+			log.Printf("failed to unmarshal routing request: %v", err)
+			// commit to avoid infinite loop on malformed message
+			if err := kw.reader.CommitMessages(ctx, msg); err != nil {
+				return fmt.Errorf("commit malformed message: %w", err)
+			}
+			continue
 		}
 
 		webhooks, err := kw.handler.GetDestinationUrl(ctx, event)
