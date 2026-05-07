@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log"
 
 	"github.com/dws-1-2026-green/subscriptions/internal/usecase/routing"
 	"github.com/dws-1-2026-green/subscriptions/internal/worker"
@@ -41,6 +42,7 @@ func (kw KafkaWorker) Run(ctx context.Context) error {
 				b, err := json.Marshal(wh)
 				if err != nil {
 					// не коммитим -> перечитаем
+					log.Printf("failed to marshal delivery: %v", err)
 					out = nil
 					break
 				}
@@ -59,6 +61,7 @@ func (kw KafkaWorker) Run(ctx context.Context) error {
 
 			if err := kw.writer.WriteMessages(ctx, out...); err != nil {
 				// не коммитим -> перечитаем
+				log.Printf("failed to write delivery messages: %v", err)
 				continue
 			}
 		}
@@ -66,6 +69,7 @@ func (kw KafkaWorker) Run(ctx context.Context) error {
 		if err := kw.reader.CommitMessages(ctx, msg); err != nil {
 			return fmt.Errorf("commit message: %w", err)
 		}
+		log.Printf("successfully processed and committed message offset=%d", msg.Offset)
 	}
 }
 

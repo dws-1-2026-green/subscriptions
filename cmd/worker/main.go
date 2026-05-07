@@ -22,6 +22,8 @@ func main() {
 		log.Fatalf("config: %v", err)
 	}
 
+	log.Printf("configuration loaded: store=%s", cfg.StoreBackend)
+
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
@@ -31,6 +33,7 @@ func main() {
 	}
 	defer app.Close()
 
+	log.Println("application initialized, starting worker...")
 	if err := app.Run(ctx); err != nil {
 		log.Fatalf("worker: %v", err)
 	}
