@@ -21,8 +21,13 @@ func (kw KafkaWorker) Run(ctx context.Context) error {
 	for {
 		msg, err := kw.reader.FetchMessage(ctx)
 		if err != nil {
-			return err
+			if ctx.Err() != nil {
+				return nil
+			}
+			return fmt.Errorf("fetch message: %w", err)
 		}
+
+		log.Printf("received routing request: key=%s, offset=%d", string(msg.Key), msg.Offset)
 
 		var event routing.RoutingRequestDTO
 		if err := json.Unmarshal(msg.Value, &event); err != nil {
@@ -31,9 +36,12 @@ func (kw KafkaWorker) Run(ctx context.Context) error {
 
 		webhooks, err := kw.handler.GetDestinationUrl(ctx, event)
 		if err != nil {
-			// не коммитим -> Kafka перечитает сообщение
+			log.Printf("failed to get destination URLs: %v", err)
+			// do not commit -> Kafka will re-read the message
 			continue
 		}
+
+		log.Printf("matched %d webhooks for event source=%s type=%s", len(webhooks), event.Source, event.EventType)
 
 		if len(webhooks) > 0 {
 			out := make([]kafkago.Message, 0, len(webhooks))
