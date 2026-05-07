@@ -5,6 +5,7 @@ import (
 	"errors"
 	"log"
 	"net/http"
+	"time"
 
 	"github.com/dws-1-2026-green/subscriptions/internal/adapter/cassandra"
 	"github.com/dws-1-2026-green/subscriptions/internal/adapter/kafka"
@@ -61,7 +62,22 @@ func New(ctx context.Context, cfg config.Config) (*RoutingApp, error) {
 		cluster := gocql.NewCluster(cfg.CassandraHosts...)
 		cluster.Keyspace = cfg.CassandraKeyspace
 		cluster.Consistency = gocql.ParseConsistency(cfg.CassandraConsistency)
-		session, err := gocqlx.WrapSession(cluster.CreateSession())
+		cluster.Timeout = 5 * time.Second
+
+		var session gocqlx.Session
+		var err error
+		for i := 0; i < 20; i++ {
+			session, err = gocqlx.WrapSession(cluster.CreateSession())
+			if err == nil {
+				break
+			}
+			log.Printf("cassandra connection failed (attempt %d/20): %v. retrying in 5s...", i+1, err)
+			select {
+			case <-time.After(5 * time.Second):
+			case <-ctx.Done():
+				return nil, ctx.Err()
+			}
+		}
 		if err != nil {
 			return nil, err
 		}
