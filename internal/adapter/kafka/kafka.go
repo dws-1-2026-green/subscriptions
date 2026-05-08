@@ -41,7 +41,7 @@ func (kw KafkaWorker) Run(ctx context.Context) error {
 			continue
 		}
 
-		log.Printf("matched %d webhooks for event source=%s type=%s", len(webhooks), event.Source, event.EventType)
+		log.Printf("matched %d webhooks for event source=%s type=%s", len(webhooks), event.Event.Source, event.Event.Type)
 
 		if len(webhooks) > 0 {
 			out := make([]kafkago.Message, 0, len(webhooks))
