@@ -2,6 +2,7 @@ package routing
 
 import (
 	"context"
+	"log/slog"
 	"time"
 
 	"github.com/dws-1-2026-green/subscriptions/internal/metrics"
@@ -15,10 +16,13 @@ type Handler struct {
 
 // GetDestinationUrl retrieves webhook destinations for a given event.
 func (h Handler) GetDestinationUrl(ctx context.Context, event RoutingRequestDTO) ([]WebhookDTO, error) {
+	slog.Info("Getting destination URLs", slog.String("trace-id", event.TraceId), slog.String("source", event.Event.Source), slog.String("type", event.Event.Type))
+
 	subscriptions, err := h.repo.ListBySourceAndType(ctx, event.Event.Source, event.Event.Type)
 
 	if err != nil {
 		metrics.RoutingErrorsTotal.Inc()
+		slog.Error("Failed to list subscriptions by source and type", slog.String("trace-id", event.TraceId), slog.Any("err", err))
 		return []WebhookDTO{}, err
 	}
 
@@ -26,6 +30,7 @@ func (h Handler) GetDestinationUrl(ctx context.Context, event RoutingRequestDTO)
 
 	if len(subscriptions) == 0 {
 		metrics.NoMatchesTotal.WithLabelValues(event.Event.Source, event.Event.Type).Inc()
+		slog.Info("No matching subscriptions found", slog.String("trace-id", event.TraceId), slog.String("source", event.Event.Source), slog.String("type", event.Event.Type))
 	}
 
 	webhooks := make([]WebhookDTO, 0, len(subscriptions))
@@ -51,6 +56,8 @@ func (h Handler) GetDestinationUrl(ctx context.Context, event RoutingRequestDTO)
 	}
 
 	metrics.DeliveriesDispatched.WithLabelValues(event.Event.Source, event.Event.Type).Add(float64(len(webhooks)))
+
+	slog.Info("Destination URLs retrieved", slog.String("trace-id", event.TraceId), slog.Int("webhooks", len(webhooks)))
 
 	return webhooks, nil
 }
