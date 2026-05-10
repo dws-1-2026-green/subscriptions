@@ -3,6 +3,10 @@ package config
 import "github.com/caarlos0/env/v11"
 
 type Config struct {
+	BuildTarget string `env:"BUILD_TARGET,required"`        // api|worker
+	LogLevel    string `env:"LOG_LEVEL" envDefault:"info"`  // debug|info|warn|error
+	LogFormat   string `env:"LOG_FORMAT" envDefault:"text"` // text|json
+
 	StoreBackend string `env:"STORE_BACKEND" envDefault:"postgres"` // postgres|cassandra
 
 	// postgres
