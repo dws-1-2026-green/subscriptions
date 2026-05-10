@@ -19,6 +19,7 @@ type KafkaWorker struct {
 
 func (kw KafkaWorker) Run(ctx context.Context) error {
 	for {
+		slog.Debug("Fetching new message...")
 		msg, err := kw.reader.FetchMessage(ctx)
 		if err != nil {
 			if ctx.Err() != nil {
