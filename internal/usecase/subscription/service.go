@@ -8,17 +8,14 @@ import (
 	"github.com/google/uuid"
 )
 
-// Service provides business logic for subscription management
 type Service struct {
 	repo Repository
 }
 
-// NewService creates a new subscription service
 func NewService(repo Repository) Service {
 	return Service{repo: repo}
 }
 
-// Create creates a new subscription
 func (s Service) Create(ctx context.Context, req *subscription.CreateRequest) (*subscription.Subscription, error) {
 	if err := req.Validate(); err != nil {
 		return nil, err
@@ -42,17 +39,14 @@ func (s Service) Create(ctx context.Context, req *subscription.CreateRequest) (*
 	return sub, nil
 }
 
-// GetByID retrieves a subscription by its ID
 func (s Service) GetByID(ctx context.Context, id string) (*subscription.Subscription, error) {
 	return s.repo.GetByID(ctx, id)
 }
 
-// List retrieves subscriptions, optionally filtered by source and event type
 func (s Service) List(ctx context.Context, source, eventType string) ([]subscription.Subscription, error) {
 	return s.repo.List(ctx, source, eventType)
 }
 
-// Update updates an existing subscription
 func (s Service) Update(ctx context.Context, id string, req *subscription.UpdateRequest) (*subscription.Subscription, error) {
 	if err := req.Validate(); err != nil {
 		return nil, err
@@ -83,7 +77,6 @@ func (s Service) Update(ctx context.Context, id string, req *subscription.Update
 	return existing, nil
 }
 
-// Delete removes a subscription by its ID
 func (s Service) Delete(ctx context.Context, id string) error {
 	return s.repo.Delete(ctx, id)
 }
