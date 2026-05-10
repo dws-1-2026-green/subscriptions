@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"log/slog"
 
 	"github.com/dws-1-2026-green/subscriptions/internal/usecase/routing"
 	"github.com/dws-1-2026-green/subscriptions/internal/worker"
@@ -27,7 +28,7 @@ func (kw KafkaWorker) Run(ctx context.Context) error {
 			return fmt.Errorf("fetch message: %w", err)
 		}
 
-		log.Printf("received routing request: key=%s, offset=%d", string(msg.Key), msg.Offset)
+		slog.Info("Received routing request", slog.String("key", string(msg.Key)), slog.Int64("offset", msg.Offset))
 
 		var event routing.RoutingRequestDTO
 		if err := json.Unmarshal(msg.Value, &event); err != nil {
@@ -36,7 +37,8 @@ func (kw KafkaWorker) Run(ctx context.Context) error {
 
 		webhooks, err := kw.handler.GetDestinationUrl(ctx, event)
 		if err != nil {
-			log.Printf("failed to get destination URLs: %v", err)
+			slog.Error("Failed to get destination URLs", slog.Any("err", err))
+
 			// do not commit -> Kafka will re-read the message
 			continue
 		}
@@ -50,7 +52,7 @@ func (kw KafkaWorker) Run(ctx context.Context) error {
 				b, err := json.Marshal(wh)
 				if err != nil {
 					// не коммитим -> перечитаем
-					log.Printf("failed to marshal delivery: %v", err)
+					slog.Info("Failed to marshal delivery", slog.Any("err", err))
 					out = nil
 					break
 				}
@@ -69,7 +71,7 @@ func (kw KafkaWorker) Run(ctx context.Context) error {
 
 			if err := kw.writer.WriteMessages(ctx, out...); err != nil {
 				// не коммитим -> перечитаем
-				log.Printf("failed to write delivery messages: %v", err)
+				slog.Error("Failed to write delivery messages", slog.Any("err", err))
 				continue
 			}
 		}
@@ -77,7 +79,8 @@ func (kw KafkaWorker) Run(ctx context.Context) error {
 		if err := kw.reader.CommitMessages(ctx, msg); err != nil {
 			return fmt.Errorf("commit message: %w", err)
 		}
-		log.Printf("successfully processed and committed message offset=%d", msg.Offset)
+
+		slog.Info("Processed", slog.Int64("offset", msg.Offset))
 	}
 }
 

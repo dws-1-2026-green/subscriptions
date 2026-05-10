@@ -3,11 +3,13 @@ package main
 import (
 	"context"
 	"log"
+	"log/slog"
 	"os"
 	"os/signal"
 	"syscall"
 
 	"github.com/dws-1-2026-green/subscriptions/internal/config"
+	"github.com/dws-1-2026-green/subscriptions/internal/logger"
 	routingApp "github.com/dws-1-2026-green/subscriptions/internal/routingApp"
 	"github.com/joho/godotenv"
 )
@@ -22,7 +24,8 @@ func main() {
 		log.Fatalf("config: %v", err)
 	}
 
-	log.Printf("configuration loaded: store=%s", cfg.StoreBackend)
+	logger.SetupLogger(&cfg)
+	slog.Info("Loaded config", slog.Any("config", cfg))
 
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
@@ -33,7 +36,7 @@ func main() {
 	}
 	defer app.Close()
 
-	log.Println("application initialized, starting worker...")
+	slog.Info("application initialized, starting worker...")
 	if err := app.Run(ctx); err != nil {
 		log.Fatalf("worker: %v", err)
 	}
