@@ -5,7 +5,6 @@ import (
 	"errors"
 	"log/slog"
 	"net/http"
-	"time"
 
 	"github.com/dws-1-2026-green/subscriptions/internal/adapter/cassandra"
 	"github.com/dws-1-2026-green/subscriptions/internal/adapter/kafka"
@@ -58,31 +57,13 @@ func New(ctx context.Context, cfg config.Config) (*RoutingApp, error) {
 		a.closeFuncs = append(a.closeFuncs, closeFunc(pool.Close))
 		repo = postges.NewPosgresSubscriptionsRepo(pool)
 	case "cassandra":
-		slog.Info("Connecting to cassandra", slog.Any("hosts", cfg.CassandraHosts), slog.String("keyspace", cfg.CassandraKeyspace))
 		cluster := gocql.NewCluster(cfg.CassandraHosts...)
 		cluster.Keyspace = cfg.CassandraKeyspace
 		cluster.Consistency = gocql.ParseConsistency(cfg.CassandraConsistency)
-		cluster.Timeout = 5 * time.Second
-
-		var session gocqlx.Session
-		var err error
-		for i := range 20 {
-			session, err = gocqlx.WrapSession(cluster.CreateSession())
-			if err == nil {
-				break
-			}
-			slog.Info("Cassandra connection failed, retrying", slog.Int("attempt", i+1), slog.Int("maxAttempts", 20), slog.Any("err", err))
-			select {
-			case <-time.After(5 * time.Second):
-			case <-ctx.Done():
-				return nil, ctx.Err()
-			}
-		}
+		session, err := gocqlx.WrapSession(cluster.CreateSession())
 		if err != nil {
 			return nil, err
 		}
-
-		slog.Info("Successfully connected to cassandra")
 		a.closeFuncs = append(a.closeFuncs, closeFunc(session.Close))
 		repo = cassandra.NewCassandraSubscriptionsRepo(&session)
 	default:
