@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"log"
 	"log/slog"
 
 	"github.com/dws-1-2026-green/subscriptions/internal/usecase/routing"
@@ -43,7 +42,7 @@ func (kw KafkaWorker) Run(ctx context.Context) error {
 			continue
 		}
 
-		log.Printf("matched %d webhooks for event source=%s type=%s", len(webhooks), event.Event.Source, event.Event.Type)
+		slog.Info("Matched webhooks", slog.Int("webhooks", len(webhooks)), slog.String("trace-id", event.TraceId), slog.String("source", event.Event.Source), slog.String("type", event.Event.Type))
 
 		if len(webhooks) > 0 {
 			out := make([]kafkago.Message, 0, len(webhooks))

@@ -3,7 +3,7 @@ package routingApp
 import (
 	"context"
 	"errors"
-	"log"
+	"log/slog"
 	"net/http"
 	"time"
 
@@ -32,7 +32,7 @@ type RoutingApp struct {
 }
 
 func (a *RoutingApp) Run(ctx context.Context) error {
-	log.Println("starting routing worker loop...")
+	slog.Info("Starting routing worker loop")
 	return a.worker.Run(ctx)
 }
 
@@ -58,7 +58,7 @@ func New(ctx context.Context, cfg config.Config) (*RoutingApp, error) {
 		a.closeFuncs = append(a.closeFuncs, closeFunc(pool.Close))
 		repo = postges.NewPosgresSubscriptionsRepo(pool)
 	case "cassandra":
-		log.Printf("connecting to cassandra: hosts=%v keyspace=%s", cfg.CassandraHosts, cfg.CassandraKeyspace)
+		slog.Info("Connecting to cassandra", slog.Any("hosts", cfg.CassandraHosts), slog.String("keyspace", cfg.CassandraKeyspace))
 		cluster := gocql.NewCluster(cfg.CassandraHosts...)
 		cluster.Keyspace = cfg.CassandraKeyspace
 		cluster.Consistency = gocql.ParseConsistency(cfg.CassandraConsistency)
@@ -66,12 +66,12 @@ func New(ctx context.Context, cfg config.Config) (*RoutingApp, error) {
 
 		var session gocqlx.Session
 		var err error
-		for i := 0; i < 20; i++ {
+		for i := range 20 {
 			session, err = gocqlx.WrapSession(cluster.CreateSession())
 			if err == nil {
 				break
 			}
-			log.Printf("cassandra connection failed (attempt %d/20): %v. retrying in 5s...", i+1, err)
+			slog.Info("Cassandra connection failed, retrying", slog.Int("attempt", i+1), slog.Int("maxAttempts", 20), slog.Any("err", err))
 			select {
 			case <-time.After(5 * time.Second):
 			case <-ctx.Done():
@@ -82,7 +82,7 @@ func New(ctx context.Context, cfg config.Config) (*RoutingApp, error) {
 			return nil, err
 		}
 
-		log.Println("successfully connected to cassandra")
+		slog.Info("Successfully connected to cassandra")
 		a.closeFuncs = append(a.closeFuncs, closeFunc(session.Close))
 		repo = cassandra.NewCassandraSubscriptionsRepo(&session)
 	default:
@@ -91,7 +91,7 @@ func New(ctx context.Context, cfg config.Config) (*RoutingApp, error) {
 
 	handler := routing.NewHandler(repo)
 
-	log.Printf("initializing kafka reader: topic=%s group=%s", cfg.RoutingRequestsTopic, cfg.KafkaGroupID)
+	slog.Info("Initializing kafka reader", slog.String("topic", cfg.RoutingRequestsTopic), slog.String("group", cfg.KafkaGroupID))
 	reader := kafkago.NewReader(kafkago.ReaderConfig{
 		Brokers: cfg.KafkaBrokers,
 		GroupID: cfg.KafkaGroupID,
@@ -99,7 +99,7 @@ func New(ctx context.Context, cfg config.Config) (*RoutingApp, error) {
 	})
 	a.closeFuncs = append(a.closeFuncs, closeFunc(func() { _ = reader.Close() }))
 
-	log.Printf("initializing kafka writer: topic=%s", cfg.DeliveriesToSendTopic)
+	slog.Info("Initializing kafka writer", slog.String("topic", cfg.DeliveriesToSendTopic))
 	writer := kafkago.NewWriter(kafkago.WriterConfig{
 		Brokers:  cfg.KafkaBrokers,
 		Topic:    cfg.DeliveriesToSendTopic,
@@ -113,7 +113,7 @@ func New(ctx context.Context, cfg config.Config) (*RoutingApp, error) {
 		mux := http.NewServeMux()
 		mux.Handle("/metrics", promhttp.Handler())
 		if err := http.ListenAndServe(cfg.MetricsAddr, mux); err != nil {
-			log.Printf("metrics server: %v", err)
+			slog.Error("Metrics server error", slog.Any("err", err))
 		}
 	}()
 
