@@ -3,7 +3,7 @@ package apiApp
 import (
 	"context"
 	"errors"
-	"log"
+	"log/slog"
 	"net/http"
 
 	"github.com/dws-1-2026-green/subscriptions/internal/adapter/cassandra"
@@ -28,7 +28,7 @@ type ApiApp struct {
 }
 
 func (a *ApiApp) Run(ctx context.Context) error {
-	log.Printf("Starting HTTP API server on %s", a.cfg.HTTPAddr)
+	slog.Info("Starting HTTP API server", slog.String("addr", a.cfg.HTTPAddr))
 	if err := a.server.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
 		return err
 	}
@@ -36,14 +36,14 @@ func (a *ApiApp) Run(ctx context.Context) error {
 }
 
 func (a *ApiApp) Close() {
-	log.Println("Shutting down HTTP API server...")
+	slog.Info("Shutting down HTTP API server")
 	if err := a.server.Shutdown(context.Background()); err != nil {
-		log.Printf("server shutdown: %v", err)
+		slog.Error("Server shutdown error", slog.Any("err", err))
 	}
 	for _, close := range a.closeFuncs {
 		close()
 	}
-	log.Println("HTTP API server stopped")
+	slog.Info("HTTP API server stopped")
 }
 
 func New(ctx context.Context, cfg config.Config) (*ApiApp, error) {

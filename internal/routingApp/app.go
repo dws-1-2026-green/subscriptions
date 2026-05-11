@@ -3,7 +3,7 @@ package routingApp
 import (
 	"context"
 	"errors"
-	"log"
+	"log/slog"
 	"net/http"
 
 	"github.com/dws-1-2026-green/subscriptions/internal/adapter/cassandra"
@@ -31,6 +31,7 @@ type RoutingApp struct {
 }
 
 func (a *RoutingApp) Run(ctx context.Context) error {
+	slog.Info("Starting routing worker loop")
 	return a.worker.Run(ctx)
 }
 
@@ -71,6 +72,7 @@ func New(ctx context.Context, cfg config.Config) (*RoutingApp, error) {
 
 	handler := routing.NewHandler(repo)
 
+	slog.Info("Initializing kafka reader", slog.String("topic", cfg.RoutingRequestsTopic), slog.String("group", cfg.KafkaGroupID))
 	reader := kafkago.NewReader(kafkago.ReaderConfig{
 		Brokers: cfg.KafkaBrokers,
 		GroupID: cfg.KafkaGroupID,
@@ -78,6 +80,7 @@ func New(ctx context.Context, cfg config.Config) (*RoutingApp, error) {
 	})
 	a.closeFuncs = append(a.closeFuncs, closeFunc(func() { _ = reader.Close() }))
 
+	slog.Info("Initializing kafka writer", slog.String("topic", cfg.DeliveriesToSendTopic))
 	writer := kafkago.NewWriter(kafkago.WriterConfig{
 		Brokers:  cfg.KafkaBrokers,
 		Topic:    cfg.DeliveriesToSendTopic,
@@ -91,7 +94,7 @@ func New(ctx context.Context, cfg config.Config) (*RoutingApp, error) {
 		mux := http.NewServeMux()
 		mux.Handle("/metrics", promhttp.Handler())
 		if err := http.ListenAndServe(cfg.MetricsAddr, mux); err != nil {
-			log.Printf("metrics server: %v", err)
+			slog.Error("Metrics server error", slog.Any("err", err))
 		}
 	}()
 

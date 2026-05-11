@@ -51,7 +51,18 @@ func (h Handler) Create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	h.respondJSON(w, http.StatusCreated, sub)
+	subDTO := &SubscriptionDTO{
+		Id:             sub.Id,
+		Source:         sub.Source,
+		EventType:      sub.EventType,
+		DestinationUrl: sub.DestinationUrl,
+		Method:         sub.Method,
+		Headers:        sub.Headers,
+		Enabled:        sub.Enabled,
+		CreatedAt:      sub.CreatedAt,
+	}
+
+	h.respondJSON(w, http.StatusCreated, subDTO)
 }
 
 // GetByID handles GET /api/v1/subscriptions/{id}
@@ -72,7 +83,18 @@ func (h Handler) GetByID(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	h.respondJSON(w, http.StatusOK, sub)
+	subDTO := &SubscriptionDTO{
+		Id:             sub.Id,
+		Source:         sub.Source,
+		EventType:      sub.EventType,
+		DestinationUrl: sub.DestinationUrl,
+		Method:         sub.Method,
+		Headers:        sub.Headers,
+		Enabled:        sub.Enabled,
+		CreatedAt:      sub.CreatedAt,
+	}
+
+	h.respondJSON(w, http.StatusOK, subDTO)
 }
 
 // List handles GET /api/v1/subscriptions
@@ -86,7 +108,23 @@ func (h Handler) List(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	h.respondJSON(w, http.StatusOK, subs)
+	subDTOs := make([]*SubscriptionDTO, 0, len(subs))
+
+	for _, sub := range subs {
+		subDTO := &SubscriptionDTO{
+			Id:             sub.Id,
+			Source:         sub.Source,
+			EventType:      sub.EventType,
+			DestinationUrl: sub.DestinationUrl,
+			Method:         sub.Method,
+			Headers:        sub.Headers,
+			Enabled:        sub.Enabled,
+			CreatedAt:      sub.CreatedAt,
+		}
+		subDTOs = append(subDTOs, subDTO)
+	}
+
+	h.respondJSON(w, http.StatusOK, subDTOs)
 }
 
 // Update handles PUT /api/v1/subscriptions/{id}
@@ -117,7 +155,18 @@ func (h Handler) Update(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	h.respondJSON(w, http.StatusOK, sub)
+	subDTO := &SubscriptionDTO{
+		Id:             sub.Id,
+		Source:         sub.Source,
+		EventType:      sub.EventType,
+		DestinationUrl: sub.DestinationUrl,
+		Method:         sub.Method,
+		Headers:        sub.Headers,
+		Enabled:        sub.Enabled,
+		CreatedAt:      sub.CreatedAt,
+	}
+
+	h.respondJSON(w, http.StatusOK, subDTO)
 }
 
 // Delete handles DELETE /api/v1/subscriptions/{id}
@@ -141,7 +190,7 @@ func (h Handler) Delete(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNoContent)
 }
 
-func (h Handler) respondJSON(w http.ResponseWriter, status int, data interface{}) {
+func (h Handler) respondJSON(w http.ResponseWriter, status int, data any) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
 	json.NewEncoder(w).Encode(data)

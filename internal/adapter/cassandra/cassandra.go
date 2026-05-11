@@ -39,122 +39,23 @@ func (r CassandraSubscriptionsRepo) ListBySourceAndType(ctx context.Context, sou
 		metrics.DBQueryDuration.WithLabelValues("cassandra").Observe(time.Since(start).Seconds())
 	}()
 
-	query := qb.Select("subscriptions").
-		Columns("subscription_id", "destination_url", "http_method", "headers", "enabled").
-		Where(qb.Eq("source"), qb.Eq("event_type")).
-		Query(*r.session).
-		Bind(source, eventType)
-
-	defer query.Release()
-
-	var rows []subscriptionRow
-	if err := query.Select(&rows); err != nil {
-		return nil, fmt.Errorf("query subscriptions: %w", err)
-	}
-
-	out := make([]subscription.Subscription, 0, len(rows))
-	for _, row := range rows {
-		if !row.Enabled {
-			continue
-		}
-
-		s := subscription.Subscription{
-			Id:             row.SubscriptionID,
-			DestinationUrl: row.DestinationURL,
-			Method:         row.HTTPMethod,
-			Headers:        row.Headers,
-		}
-
-		if s.Headers == nil {
-			s.Headers = map[string]string{}
-		}
-
-		out = append(out, s)
-	}
-
-	return out, nil
+	return r.listBySourceAndType(source, eventType)
 }
 
-// Create creates a new subscription in both tables using batch
-func (r CassandraSubscriptionsRepo) Create(ctx context.Context, sub *subscription.Subscription) error {
+func (r CassandraSubscriptionsRepo) List(ctx context.Context, source string, eventType string) ([]subscription.Subscription, error) {
 	start := time.Now()
 	defer func() {
 		metrics.DBQueryDuration.WithLabelValues("cassandra").Observe(time.Since(start).Seconds())
 	}()
 
-	batch := gocql.NewBatch(gocql.LoggedBatch)
-
-	// Insert into subscriptions table
-	batch.Query(
-		`INSERT INTO subscriptions (source, event_type, subscription_id, destination_url, http_method, headers, enabled, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-		sub.Source, sub.EventType, sub.Id, sub.DestinationUrl, sub.Method, sub.Headers, sub.Enabled, sub.CreatedAt,
-	)
-
-	// Insert into subscriptions_by_id table
-	batch.Query(
-		`INSERT INTO subscriptions_by_id (subscription_id, source, event_type, destination_url, http_method, headers, enabled, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-		sub.Id, sub.Source, sub.EventType, sub.DestinationUrl, sub.Method, sub.Headers, sub.Enabled, sub.CreatedAt,
-	)
-
-	if err := r.session.Session.ExecuteBatch(batch); err != nil {
-		return fmt.Errorf("batch insert subscription: %w", err)
-	}
-
-	return nil
-}
-
-// GetByID retrieves a subscription by its ID from subscriptions_by_id table
-func (r CassandraSubscriptionsRepo) GetByID(ctx context.Context, id string) (*subscription.Subscription, error) {
-	start := time.Now()
-	defer func() {
-		metrics.DBQueryDuration.WithLabelValues("cassandra").Observe(time.Since(start).Seconds())
-	}()
-
-	query := qb.Select("subscriptions_by_id").
-		Columns("subscription_id", "source", "event_type", "destination_url", "http_method", "headers", "enabled", "created_at").
-		Where(qb.Eq("subscription_id")).
-		Query(*r.session).
-		Bind(id)
-
-	defer query.Release()
-
-	var row subscriptionRow
-	if err := query.Get(&row); err != nil {
-		if err == gocql.ErrNotFound {
-			return nil, subscription.ErrNotFound
-		}
-		return nil, fmt.Errorf("query subscription by id: %w", err)
-	}
-
-	return &subscription.Subscription{
-		Id:             row.SubscriptionID,
-		Source:         row.Source,
-		EventType:      row.EventType,
-		DestinationUrl: row.DestinationURL,
-		Method:         row.HTTPMethod,
-		Headers:        row.Headers,
-		Enabled:        row.Enabled,
-		CreatedAt:      row.CreatedAt,
-	}, nil
-}
-
-// List retrieves subscriptions, optionally filtered by source and event type
-func (r CassandraSubscriptionsRepo) List(ctx context.Context, source, eventType string) ([]subscription.Subscription, error) {
-	start := time.Now()
-	defer func() {
-		metrics.DBQueryDuration.WithLabelValues("cassandra").Observe(time.Since(start).Seconds())
-	}()
-
-	// If source and eventType are provided, use the subscriptions table
-	// Otherwise, scan subscriptions_by_id table
 	if source != "" && eventType != "" {
-		return r.listBySourceAndType(ctx, source, eventType)
+		return r.listBySourceAndType(source, eventType)
 	}
 
-	return r.listAll(ctx)
+	return r.listAll()
 }
 
-func (r CassandraSubscriptionsRepo) listBySourceAndType(ctx context.Context, source, eventType string) ([]subscription.Subscription, error) {
+func (r CassandraSubscriptionsRepo) listBySourceAndType(source, eventType string) ([]subscription.Subscription, error) {
 	query := qb.Select("subscriptions").
 		Columns("subscription_id", "source", "event_type", "destination_url", "http_method", "headers", "enabled", "created_at").
 		Where(qb.Eq("source"), qb.Eq("event_type")).
@@ -171,7 +72,7 @@ func (r CassandraSubscriptionsRepo) listBySourceAndType(ctx context.Context, sou
 	return r.rowsToSubscriptions(rows), nil
 }
 
-func (r CassandraSubscriptionsRepo) listAll(ctx context.Context) ([]subscription.Subscription, error) {
+func (r CassandraSubscriptionsRepo) listAll() ([]subscription.Subscription, error) {
 	query := qb.Select("subscriptions_by_id").
 		Columns("subscription_id", "source", "event_type", "destination_url", "http_method", "headers", "enabled", "created_at").
 		Query(*r.session)
@@ -209,22 +110,78 @@ func (r CassandraSubscriptionsRepo) rowsToSubscriptions(rows []subscriptionRow) 
 	return out
 }
 
-// Update updates a subscription in both tables using batch
+func (r CassandraSubscriptionsRepo) Create(ctx context.Context, sub *subscription.Subscription) error {
+	start := time.Now()
+	defer func() {
+		metrics.DBQueryDuration.WithLabelValues("cassandra").Observe(time.Since(start).Seconds())
+	}()
+
+	batch := r.session.NewBatch(gocql.LoggedBatch)
+
+	batch.Query(
+		`INSERT INTO subscriptions (source, event_type, subscription_id, destination_url, http_method, headers, enabled, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+		sub.Source, sub.EventType, sub.Id, sub.DestinationUrl, sub.Method, sub.Headers, sub.Enabled, sub.CreatedAt,
+	)
+
+	batch.Query(
+		`INSERT INTO subscriptions_by_id (subscription_id, source, event_type, destination_url, http_method, headers, enabled, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+		sub.Id, sub.Source, sub.EventType, sub.DestinationUrl, sub.Method, sub.Headers, sub.Enabled, sub.CreatedAt,
+	)
+
+	if err := r.session.Session.ExecuteBatch(batch); err != nil {
+		return fmt.Errorf("batch insert subscription: %w", err)
+	}
+
+	return nil
+}
+
+func (r CassandraSubscriptionsRepo) GetByID(ctx context.Context, id string) (*subscription.Subscription, error) {
+	start := time.Now()
+	defer func() {
+		metrics.DBQueryDuration.WithLabelValues("cassandra").Observe(time.Since(start).Seconds())
+	}()
+
+	query := qb.Select("subscriptions_by_id").
+		Columns("subscription_id", "source", "event_type", "destination_url", "http_method", "headers", "enabled", "created_at").
+		Where(qb.Eq("subscription_id")).
+		Query(*r.session).
+		Bind(id)
+
+	defer query.Release()
+
+	var row subscriptionRow
+	if err := query.Get(&row); err != nil {
+		if err == gocql.ErrNotFound {
+			return nil, subscription.ErrNotFound
+		}
+		return nil, fmt.Errorf("query subscription by id: %w", err)
+	}
+
+	return &subscription.Subscription{
+		Id:             row.SubscriptionID,
+		Source:         row.Source,
+		EventType:      row.EventType,
+		DestinationUrl: row.DestinationURL,
+		Method:         row.HTTPMethod,
+		Headers:        row.Headers,
+		Enabled:        row.Enabled,
+		CreatedAt:      row.CreatedAt,
+	}, nil
+}
+
 func (r CassandraSubscriptionsRepo) Update(ctx context.Context, sub *subscription.Subscription) error {
 	start := time.Now()
 	defer func() {
 		metrics.DBQueryDuration.WithLabelValues("cassandra").Observe(time.Since(start).Seconds())
 	}()
 
-	batch := gocql.NewBatch(gocql.LoggedBatch)
+	batch := r.session.NewBatch(gocql.LoggedBatch)
 
-	// Update subscriptions table
 	batch.Query(
 		`UPDATE subscriptions SET destination_url = ?, http_method = ?, headers = ?, enabled = ? WHERE source = ? AND event_type = ? AND subscription_id = ?`,
 		sub.DestinationUrl, sub.Method, sub.Headers, sub.Enabled, sub.Source, sub.EventType, sub.Id,
 	)
 
-	// Update subscriptions_by_id table
 	batch.Query(
 		`UPDATE subscriptions_by_id SET destination_url = ?, http_method = ?, headers = ?, enabled = ? WHERE subscription_id = ?`,
 		sub.DestinationUrl, sub.Method, sub.Headers, sub.Enabled, sub.Id,
@@ -237,28 +194,24 @@ func (r CassandraSubscriptionsRepo) Update(ctx context.Context, sub *subscriptio
 	return nil
 }
 
-// Delete removes a subscription from both tables using batch
 func (r CassandraSubscriptionsRepo) Delete(ctx context.Context, id string) error {
 	start := time.Now()
 	defer func() {
 		metrics.DBQueryDuration.WithLabelValues("cassandra").Observe(time.Since(start).Seconds())
 	}()
 
-	// First get the subscription to find source and event_type
 	sub, err := r.GetByID(ctx, id)
 	if err != nil {
 		return err
 	}
 
-	batch := gocql.NewBatch(gocql.LoggedBatch)
+	batch := r.session.NewBatch(gocql.LoggedBatch)
 
-	// Delete from subscriptions table
 	batch.Query(
 		`DELETE FROM subscriptions WHERE source = ? AND event_type = ? AND subscription_id = ?`,
 		sub.Source, sub.EventType, id,
 	)
 
-	// Delete from subscriptions_by_id table
 	batch.Query(
 		`DELETE FROM subscriptions_by_id WHERE subscription_id = ?`,
 		id,

@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log/slog"
 
 	"github.com/dws-1-2026-green/subscriptions/internal/usecase/routing"
 	"github.com/dws-1-2026-green/subscriptions/internal/worker"
@@ -18,10 +19,16 @@ type KafkaWorker struct {
 
 func (kw KafkaWorker) Run(ctx context.Context) error {
 	for {
+		slog.Debug("Fetching new message...")
 		msg, err := kw.reader.FetchMessage(ctx)
 		if err != nil {
-			return err
+			if ctx.Err() != nil {
+				return nil
+			}
+			return fmt.Errorf("fetch message: %w", err)
 		}
+
+		slog.Info("Received routing request", slog.String("key", string(msg.Key)), slog.Int64("offset", msg.Offset))
 
 		var event routing.RoutingRequestDTO
 		if err := json.Unmarshal(msg.Value, &event); err != nil {
@@ -30,9 +37,13 @@ func (kw KafkaWorker) Run(ctx context.Context) error {
 
 		webhooks, err := kw.handler.GetDestinationUrl(ctx, event)
 		if err != nil {
-			// не коммитим -> Kafka перечитает сообщение
+			slog.Error("Failed to get destination URLs", slog.Any("err", err))
+
+			// do not commit -> Kafka will re-read the message
 			continue
 		}
+
+		slog.Info("Matched webhooks", slog.Int("webhooks", len(webhooks)), slog.String("trace-id", event.TraceId), slog.String("source", event.Event.Source), slog.String("type", event.Event.Type))
 
 		if len(webhooks) > 0 {
 			out := make([]kafkago.Message, 0, len(webhooks))
@@ -41,6 +52,7 @@ func (kw KafkaWorker) Run(ctx context.Context) error {
 				b, err := json.Marshal(wh)
 				if err != nil {
 					// не коммитим -> перечитаем
+					slog.Info("Failed to marshal delivery", slog.Any("err", err))
 					out = nil
 					break
 				}
@@ -59,6 +71,7 @@ func (kw KafkaWorker) Run(ctx context.Context) error {
 
 			if err := kw.writer.WriteMessages(ctx, out...); err != nil {
 				// не коммитим -> перечитаем
+				slog.Error("Failed to write delivery messages", slog.Any("err", err))
 				continue
 			}
 		}
@@ -66,6 +79,8 @@ func (kw KafkaWorker) Run(ctx context.Context) error {
 		if err := kw.reader.CommitMessages(ctx, msg); err != nil {
 			return fmt.Errorf("commit message: %w", err)
 		}
+
+		slog.Info("Processed", slog.Int64("offset", msg.Offset))
 	}
 }
 
