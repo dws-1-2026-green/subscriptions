@@ -31,4 +31,19 @@ var (
 		Help:    "Latency of subscription lookup queries",
 		Buckets: prometheus.DefBuckets,
 	}, []string{"backend"})
+
+	CacheHitsTotal = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "subscriptions_cache_hits_total",
+		Help: "Subscription lookups served from in-memory TTL cache",
+	})
+
+	CacheMissesTotal = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "subscriptions_cache_misses_total",
+		Help: "Subscription lookups that bypassed cache and hit the DB",
+	})
+
+	KafkaMessagesConsumed = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "subscriptions_kafka_messages_consumed_total",
+		Help: "Total number of messages fetched from Kafka routing.requests",
+	})
 )

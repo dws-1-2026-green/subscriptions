@@ -5,10 +5,12 @@ import (
 	"errors"
 	"log/slog"
 	"net/http"
+	"time"
 
 	"github.com/dws-1-2026-green/subscriptions/internal/adapter/cassandra"
 	"github.com/dws-1-2026-green/subscriptions/internal/adapter/kafka"
 	"github.com/dws-1-2026-green/subscriptions/internal/adapter/postges"
+	"github.com/dws-1-2026-green/subscriptions/internal/cache"
 	"github.com/dws-1-2026-green/subscriptions/internal/config"
 	"github.com/dws-1-2026-green/subscriptions/internal/usecase/routing"
 	"github.com/dws-1-2026-green/subscriptions/internal/worker"
@@ -70,7 +72,10 @@ func New(ctx context.Context, cfg config.Config) (*RoutingApp, error) {
 		return nil, errors.New("unknown STORE_BACKEND: " + cfg.StoreBackend)
 	}
 
-	handler := routing.NewHandler(repo)
+	slog.Info("Wrapping repo with TTL cache", slog.Duration("ttl", cfg.CacheTTL))
+	cachedRepo := cache.NewCachedRepo(repo, cfg.CacheTTL)
+
+	handler := routing.NewHandler(cachedRepo)
 
 	slog.Info("Initializing kafka reader", slog.String("topic", cfg.RoutingRequestsTopic), slog.String("group", cfg.KafkaGroupID))
 	reader := kafkago.NewReader(kafkago.ReaderConfig{
@@ -82,13 +87,15 @@ func New(ctx context.Context, cfg config.Config) (*RoutingApp, error) {
 
 	slog.Info("Initializing kafka writer", slog.String("topic", cfg.DeliveriesToSendTopic))
 	writer := kafkago.NewWriter(kafkago.WriterConfig{
-		Brokers:  cfg.KafkaBrokers,
-		Topic:    cfg.DeliveriesToSendTopic,
-		Balancer: &kafkago.Hash{},
+		Brokers:      cfg.KafkaBrokers,
+		Topic:        cfg.DeliveriesToSendTopic,
+		Balancer:     &kafkago.Hash{},
+		BatchTimeout: time.Millisecond,
 	})
 	a.closeFuncs = append(a.closeFuncs, closeFunc(func() { _ = writer.Close() }))
 
-	a.worker = kafka.NewWorker(reader, writer, handler)
+	slog.Info("Initializing kafka worker", slog.Int("concurrency", cfg.WorkerConcurrency))
+	a.worker = kafka.NewWorker(reader, writer, handler, cfg.WorkerConcurrency)
 
 	go func() {
 		mux := http.NewServeMux()
