@@ -1,6 +1,10 @@
 package config
 
-import "github.com/caarlos0/env/v11"
+import (
+	"time"
+
+	"github.com/caarlos0/env/v11"
+)
 
 type Config struct {
 	BuildTarget string `env:"BUILD_TARGET,required"`        // api|worker
@@ -22,6 +26,10 @@ type Config struct {
 	KafkaGroupID          string   `env:"KAFKA_GROUP_ID" envDefault:"subscriptions-worker"`
 	RoutingRequestsTopic  string   `env:"KAFKA_ROUTING_REQUESTS_TOPIC" envDefault:"routing.requests"`
 	DeliveriesToSendTopic string   `env:"KAFKA_DELIVERIES_TOPIC" envDefault:"deliveries.to_send"`
+
+	// worker tuning
+	CacheTTL          time.Duration `env:"CACHE_TTL" envDefault:"60s"`
+	WorkerConcurrency int           `env:"WORKER_CONCURRENCY" envDefault:"10"`
 
 	MetricsAddr string `env:"METRICS_ADDR" envDefault:":9091"`
 
