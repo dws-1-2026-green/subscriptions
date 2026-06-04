@@ -66,6 +66,12 @@ func New(ctx context.Context, cfg config.Config) (*ApiApp, error) {
 		cluster := gocql.NewCluster(cfg.CassandraHosts...)
 		cluster.Keyspace = cfg.CassandraKeyspace
 		cluster.Consistency = gocql.ParseConsistency(cfg.CassandraConsistency)
+		if cfg.CassandraUser != "" {
+			cluster.Authenticator = gocql.PasswordAuthenticator{
+				Username: cfg.CassandraUser,
+				Password: cfg.CassandraPassword,
+			}
+		}
 		session, err := gocqlx.WrapSession(cluster.CreateSession())
 		if err != nil {
 			return nil, err

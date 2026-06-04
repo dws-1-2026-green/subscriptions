@@ -20,6 +20,8 @@ type Config struct {
 	CassandraHosts       []string `env:"CASSANDRA_HOSTS" envSeparator:","`
 	CassandraKeyspace    string   `env:"CASSANDRA_KEYSPACE" envDefault:"webhooks"`
 	CassandraConsistency string   `env:"CASSANDRA_CONSISTENCY" envDefault:"QUORUM"`
+	CassandraUser        string   `env:"CASSANDRA_USER"`
+	CassandraPassword    string   `env:"CASSANDRA_PASSWORD"`
 
 	// kafka
 	KafkaBrokers          []string `env:"KAFKA_BROKERS" envSeparator:","`
